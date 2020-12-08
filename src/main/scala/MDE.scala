@@ -63,9 +63,9 @@ object MDE extends App {
   val n = 50
   val margin = 1.0
   val method = 0
-  val nbatches = 100
+  val nbatches = 50//100
   val nepoch = 2000
-  var rate = 0.00001//0.00001//0.001//0.0001//0.1// 0.01 too big
+  var lr_rate = 0.0000001//0.00001//0.001//0.0001//0.1// 0.01 too big
   var entity_num = 0
   var relation_num = 0
   var testTriples = 0
@@ -148,7 +148,7 @@ object MDE extends App {
     entitycache.destroy()
     relationcache.destroy()
     println("rdim nur " + n)
-    println("rate is " + rate)
+    println("lr_rate is " + lr_rate)
     println("margin is " + margin)
     var startTime = java.time.LocalDateTime.now()
 
@@ -233,6 +233,17 @@ object MDE extends App {
     return sum
   }
 
+  def renorm_l2(a: DenseVector[Double]): DenseVector[Double] = {
+    var sum: Double = 0.0
+    for (i <- 0 until a.size)
+      sum = sum + (a(i) * a(i))
+    sum = sqrt(sum)
+      for (i <- 0 until a.size)
+        a(i) /= sum
+    return a
+  }
+
+
   def populateTrainingTriplesCache(filePath: String, Name1: String, Name2: String, ecache: Cache, rcache: Cache): Int = {
     var lineNr: Int = 0
     val str1 = dataStreamer$[Int, TripleID](Name1, 2048)
@@ -294,7 +305,7 @@ object MDE extends App {
     var variables = Map[String, String]()
     variables += ("batchsize" -> batchsize.toString())
     variables += ("dim_num" -> n.toString())
-    variables += ("rate" -> rate.toString())
+    variables += ("lr_rate" -> lr_rate.toString())
     variables += ("margin" -> margin.toString())
     variables += ("batchesPerNode" -> batchesPerNode.toString())
     variables += ("updateGamma" -> update_gamma.toString())
@@ -312,21 +323,22 @@ object MDE extends App {
 
     val bw = new BufferedWriter(new FileWriter("trainingResults.txt"))
     bw.write("dimSize = " + n + "\n")
-    bw.write("l rate = " + rate + "\n")
+    bw.write("lr_rate = " + lr_rate + "\n")
     bw.write("marign = " + margin + "\n")
     bw.write("nBatches = " + nbatches + "\n")
     bw.write("~~~~~~~~~~~~~~~~~~~~~~~~ Training results ~~~~~~~~~~~~~~~~~~~~~~~~" + "\n")
     bw.write("Starting training at  " + java.time.LocalDateTime.now())
     for (epoch <- 0 until nepoch) {
-      /*if (epoch == 10)
-        rate = rate / 10
+      //if (epoch == 5)
+      //  lr_rate =lr_rate / 10
 
-      if (epoch == 100)
-        rate = rate / 10
+      //if (epoch == 20)
+      //  lr_rate = lr_rate / 10
 
-      if (epoch == 300)
-        rate = rate / 10
-*/
+      //if (epoch == 50)
+      //  lr_rate = lr_rate / 10
+
+      bw.write("iteration = " + epoch + "\n")
       res = 0
       var resPos: Double = 0
       var resNeg: Double = 0
@@ -344,8 +356,8 @@ object MDE extends App {
         calls.clear()
         for (batchLoss <- batchCompute.asScala) {
           res += batchLoss._1
-          updateEmbeddingsMap(entityEmbed, batchLoss._2)
-          updateEmbeddingsMap(relationEmbed, batchLoss._3)
+          updateEmbeddingsMap(entityEmbed, batchLoss._2) //entity gradients
+          updateEmbeddingsMap(relationEmbed, batchLoss._3)//relation gradients
           resPos += batchLoss._4
           resNeg += batchLoss._5
         }
@@ -387,7 +399,7 @@ object MDE extends App {
         var temp = DenseVector.zeros[Double](n)
         for (i <- 0 until n)
           temp(i) = old(k, i) + e._2(k, i)
-        newEmbed(k, ::) := temp  //newEmbed(k, ::) = temp
+        newEmbed(k, ::) := renorm_l2(temp).t //(temp).t//renorm_l2(temp).t // norm(temp).t //(temp).t
       }
 
       embeddingsMap += (e._1 -> newEmbed)// (e._1 -> e._2)
@@ -432,7 +444,7 @@ object MDE extends App {
 //    var finish = java.time.LocalDateTime.now()
 //    println("start: " + start + " end:" + finish)
 //    val bw = new BufferedWriter(new FileWriter("testResults.txt"))
-//    bw.write("dim " + n + ", rate " + rate + ", margin " + margin)
+//    bw.write("dim " + n + ", lr_rate " + lr_rate + ", margin " + margin)
 //    bw.write("Hit@" + hitAt + " raw for head is: " + countHits4head * 100 / testTriples + "% \n")
 //    bw.write("Hit@" + hitAt + " raw for tail is: " + countHits4tail * 100 / testTriples + "% \n")
 //    bw.write("Hit@" + hitAt + " filtered for head is: " + countHits4headFiltered * 100 / testTriples + "% \n")
@@ -445,7 +457,7 @@ object MDE extends App {
 //    bw.write("*************************************************************************")
 //    bw.close()
 //
-//    println("dim " + n + ", rate " + rate + ", margin " + margin)
+//    println("dim " + n + ", lr_rate " + lr_rate + ", margin " + margin)
 //    println("Hit@" + hitAt + " raw for head is: " + Math.round(countHits4head * 100 / testTriples) + "% ")
 //    println("Hit@" + hitAt + " raw for tail is: " + Math.round(countHits4tail * 100 / testTriples) + "% ")
 //    println("Hit@" + hitAt + " filtered for head is: " + Math.round(countHits4headFiltered * 100 / testTriples) + "% ")
