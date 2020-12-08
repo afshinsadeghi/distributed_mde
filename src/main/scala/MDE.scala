@@ -65,7 +65,7 @@ object MDE extends App {
   val method = 0
   val nbatches = 100
   val nepoch = 2000
-  var rate = 0.01
+  var rate = 0.00001//0.00001//0.001//0.0001//0.1// 0.01 too big
   var entity_num = 0
   var relation_num = 0
   var testTriples = 0
@@ -225,6 +225,14 @@ object MDE extends App {
     return a
   }
 
+  def norm_l2(a: DenseVector[Double]): Double = {
+    var sum: Double = 0.0
+    for (i <- 0 until a.size)
+      sum = sum + (a(i) * a(i))
+    sum = sqrt(sum)
+    return sum
+  }
+
   def populateTrainingTriplesCache(filePath: String, Name1: String, Name2: String, ecache: Cache, rcache: Cache): Int = {
     var lineNr: Int = 0
     val str1 = dataStreamer$[Int, TripleID](Name1, 2048)
@@ -310,6 +318,15 @@ object MDE extends App {
     bw.write("~~~~~~~~~~~~~~~~~~~~~~~~ Training results ~~~~~~~~~~~~~~~~~~~~~~~~" + "\n")
     bw.write("Starting training at  " + java.time.LocalDateTime.now())
     for (epoch <- 0 until nepoch) {
+      /*if (epoch == 10)
+        rate = rate / 10
+
+      if (epoch == 100)
+        rate = rate / 10
+
+      if (epoch == 300)
+        rate = rate / 10
+*/
       res = 0
       var resPos: Double = 0
       var resNeg: Double = 0
@@ -370,10 +387,10 @@ object MDE extends App {
         var temp = DenseVector.zeros[Double](n)
         for (i <- 0 until n)
           temp(i) = old(k, i) + e._2(k, i)
-        newEmbed(k, ::) := norm(temp).t
+        newEmbed(k, ::) := temp  //newEmbed(k, ::) = temp
       }
 
-      embeddingsMap += (e._1 -> newEmbed)
+      embeddingsMap += (e._1 -> newEmbed)// (e._1 -> e._2)
     })
   }
 
