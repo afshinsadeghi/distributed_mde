@@ -46,6 +46,15 @@
 	    <version>2.8.0</version>
 	</dependency>
 
+
+        <dependency>
+            <groupId>com.github.wookietreiber</groupId>
+            <artifactId>scala-chart_2.11</artifactId>
+            <version>0.5.1</version>
+        </dependency>
+
+
+
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>

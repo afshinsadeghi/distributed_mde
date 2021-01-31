@@ -51,8 +51,8 @@ class ComputeInsideNode(entityCache: Map[Int, DenseMatrix[Double]], relationCach
 
   // Initialize optimizer
   val numerical_stability = .00000001
-  //val optimizer_name = "sgd" // "adam"
-  val optimizer_name = "adam" // "adam"
+  val optimizer_name = "sgd"
+  //val optimizer_name = "adam"
   /**
     * Initialize momentum term, exponential weight for moving average of the gradient
     */

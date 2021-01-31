@@ -318,6 +318,11 @@ object MDE extends App {
   def bfgs(cacheF: CacheFilter, tripleSize: Int, entityEmbed: Map[Int, DenseMatrix[Double]], relationEmbed: Map[Int,
     DenseMatrix[Double]]) {
 
+    import scalax.chart.api._
+    val series = new XYSeries("Loss vs Epoch")
+    val chart = XYLineChart(series)
+    chart.show()
+
     val ignite = Ignition.ignite()
     val clusterSize = ignite.cluster().nodes().size()
     var batchesPerNode = 0
@@ -411,6 +416,13 @@ object MDE extends App {
         //        writeFile("finalEntEmbed.txt", entityEmbed, entity_num)
         //        writeFile("finalRelEmbed.txt", relationEmbed, relation_num)
       }
+
+
+
+        swing.Swing onEDT {
+          series.add(epoch,loss_per_triple)
+        }
+
 
     }
     bw.write("Finished training at  " + java.time.LocalDateTime.now())
