@@ -1,15 +1,15 @@
-import java.lang.{ Integer => JavaInt, Long => JavaLong, String => JavaString, Double => JavaFloat }
+import java.lang.{Integer => JavaInt, Long => JavaLong, String => JavaString, Double => JavaFloat}
 import scala.io.Source
 import java.util
 import java.util.Map.Entry
 import java.util.Timer
-import javax.cache.processor.{ EntryProcessor, MutableEntry }
+import javax.cache.processor.{EntryProcessor, MutableEntry}
 import org.apache.ignite.cache.query.SqlFieldsQuery
 import org.apache.ignite.internal.util.scala.impl
 import org.apache.ignite.scalar.scalar
 import org.apache.ignite.scalar.scalar._
 import org.apache.ignite.stream.StreamReceiver
-import org.apache.ignite.{ IgniteCache, IgniteException }
+import org.apache.ignite.{IgniteCache, IgniteException}
 import scala.util.Random
 import scala.io.Source._
 import scala.collection.JavaConverters._
@@ -28,7 +28,7 @@ import org.apache.ignite.lang.IgniteReducer
 import java.util.ArrayList
 import org.apache.ignite.Ignite
 import org.apache.ignite.Ignition
-import org.apache.ignite.compute.{ ComputeJob, ComputeJobResult, ComputeTaskSplitAdapter }
+import org.apache.ignite.compute.{ComputeJob, ComputeJobResult, ComputeTaskSplitAdapter}
 import scala.collection.mutable.ListBuffer
 import scala.collection.mutable.Map
 import java.nio.file.Paths
@@ -55,6 +55,7 @@ object MDE extends App {
   private final val testCache = "testTriplecachee"
   final val MaxValue: Double = 1.7976931348623157E308
 
+
   /** Type alias. */
   type Cache = IgniteCache[JavaString, JavaInt]
   type CacheFilter = IgniteCache[TripleID, Int]
@@ -63,23 +64,28 @@ object MDE extends App {
   val n = 50
   val margin = 1.0
   val method = 0
-  val nbatches = 50//100
+  val nbatches = 50 //100
   val nepoch = 2000
-  var lr_rate = 0.0000001//0.00001//0.001//0.0001//0.1// 0.01 too big
+  //var lr_rate = 0.0000001//0.00001//0.001//0.0001//0.1// 0.01 too big
+  var lr_rate = 0.01
   var entity_num = 0
   var relation_num = 0
   var testTriples = 0
+
   var gamma_p: Double = 1.9
   var gamma_n: Double = 1.9
   var delta_p: Double = 0.0
   var delta_n: Double = 0.0
-  var beta1: Double = 1.0
-  var beta2: Double = 2.0
-  val update_gamma = false
+  //var beta1: Double = 1.0
+  var beta1: Double = 0.9
+  //var beta2: Double = 2.0
+  var beta2: Double = 0.999
+  val update_gamma = true
   var hitAt = 10
 
   scalar(CONFIG) {
-    println(MaxValue)
+    //println(MaxValue)
+    println("----------------------------------------------------")
     var cfgTriples = new CacheConfiguration[Int, TripleID]
     cfgTriples.setName(tripleIDs)
     cfgTriples.setCacheMode(CacheMode.REPLICATED)
@@ -95,8 +101,10 @@ object MDE extends App {
     cfg_test_Triples.setCacheMode(CacheMode.REPLICATED)
     var testTripleIDsCache = Ignition.ignite().getOrCreateCache(cfg_test_Triples)
 
-    val entitycache = createCache$[JavaString, JavaInt](entityCache, indexedTypes = Seq(classOf[JavaString], classOf[JavaInt]))
-    val relationcache = createCache$[JavaString, JavaInt](relationCache, indexedTypes = Seq(classOf[JavaString], classOf[JavaInt]))
+    val entitycache = createCache$[JavaString, JavaInt](entityCache, indexedTypes = Seq(classOf[JavaString],
+      classOf[JavaInt]))
+    val relationcache = createCache$[JavaString, JavaInt](relationCache, indexedTypes = Seq(classOf[JavaString],
+      classOf[JavaInt]))
 
     println(java.time.LocalDateTime.now())
     var calls: Collection[IgniteCallable[Int]] = new ArrayList
@@ -137,10 +145,12 @@ object MDE extends App {
     var relationEmbed = scala.collection.mutable.Map[Int, DenseMatrix[Double]]()
     createEmbedMatrixMap(entityEmbed, entity_num)
     createEmbedMatrixMap(relationEmbed, relation_num)
-    println("embeddings created " + java.time.LocalDateTime.now())
-    val tripleNr = populateTrainingTriplesCache("/data/WN18/train.txt", tripleIDs, filterCache, entitycache, relationcache)
+    println("embeddings initiated " + java.time.LocalDateTime.now())
+    val tripleNr = populateTrainingTriplesCache("/data/WN18/train.txt", tripleIDs, filterCache, entitycache,
+      relationcache)
     println(" Train triples read")
-    val validTriples = populateTrainingTriplesCache("/data/WN18/valid.txt", tripleIDs, filterCache, entitycache, relationcache)
+    val validTriples = populateTrainingTriplesCache("/data/WN18/valid.txt", tripleIDs, filterCache, entitycache,
+      relationcache)
     println(" Valid triples read")
     testTriples = populateTestCache("/data/WN18/test.txt", testCache, entitycache, relationcache)
     println(" Test triples read")
@@ -150,19 +160,21 @@ object MDE extends App {
     println("rdim nur " + n)
     println("lr_rate is " + lr_rate)
     println("margin is " + margin)
-    var startTime = java.time.LocalDateTime.now()
 
+    val startTime = java.time.LocalDateTime.now()
     bfgs(filtercache, tripleIdCache.size(), entityEmbed, relationEmbed)
     println("Training started at: " + startTime + " and ended at: " + java.time.LocalDateTime.now())
     entityEmbed.clear()
     relationEmbed.clear()
-    var testStart = java.time.LocalDateTime.now()
+    val testStart = java.time.LocalDateTime.now()
 
-   // computeTest(entityEmbed, relationEmbed, testTripleIDsCache, filtercache)
+    // computeTest(entityEmbed, relationEmbed, testTripleIDsCache, filtercache)
     println("Test started at: " + testStart + " and ended at:" + java.time.LocalDateTime.now())
 
   }
+
   private def triplesCache[K, V]: IgniteCache[K, V] = cache$[K, V](tripleIDs).get
+
   private def filteringCache[K, V]: IgniteCache[K, V] = cache$[K, V](filterCache).get
 
   def writeFile(filename: String, embeddings: Map[Int, DenseVector[Double]], eSize: Int): Unit = {
@@ -181,8 +193,8 @@ object MDE extends App {
       var embedd: DenseMatrix[Double] = breeze.linalg.DenseMatrix.zeros[Double](8, n)
       for (k <- 0 until 8) {
         var temp: DenseVector[Double] = breeze.linalg.DenseVector.zeros[Double](n)
-          val randGaussian = breeze.stats.distributions.Gaussian(0, 1)
-          temp = DenseVector.rand(n, randGaussian)
+        val randGaussian = breeze.stats.distributions.Gaussian(0, 1)
+        temp = DenseVector.rand(n, randGaussian)
         embedd(k, ::) := temp.t
       }
       mapName += (i -> embedd)
@@ -238,13 +250,14 @@ object MDE extends App {
     for (i <- 0 until a.size)
       sum = sum + (a(i) * a(i))
     sum = sqrt(sum)
-      for (i <- 0 until a.size)
-        a(i) /= sum
+    for (i <- 0 until a.size)
+      a(i) /= sum
     return a
   }
 
 
-  def populateTrainingTriplesCache(filePath: String, Name1: String, Name2: String, ecache: Cache, rcache: Cache): Int = {
+  def populateTrainingTriplesCache(filePath: String, Name1: String, Name2: String, ecache: Cache, rcache: Cache): Int
+  = {
     var lineNr: Int = 0
     val str1 = dataStreamer$[Int, TripleID](Name1, 2048)
     val str2 = dataStreamer$[TripleID, Int](Name2, 2048)
@@ -284,6 +297,7 @@ object MDE extends App {
     smtr.close(false)
     return lineNr
   }
+
   def update_limits(loss_p_per_triple: Double, loss_n_per_triple: Double) {
     if (loss_p_per_triple * beta1 < 0.1 && delta_p < gamma_p)
       delta_p += 0.1
@@ -293,15 +307,27 @@ object MDE extends App {
       delta_n -= 0.1
   }
 
-  def bfgs(cacheF: CacheFilter, tripleSize: Int, entityEmbed: Map[Int, DenseMatrix[Double]], relationEmbed: Map[Int, DenseMatrix[Double]]) {
-    var ignite = Ignition.ignite()
-    var clusterSize = ignite.cluster().nodes().size()
+  /**
+   * Broyden–Fletcher–Goldfarb–Shanno algorithm
+   *
+   * @param cacheF seems not in use
+   * @param tripleSize
+   * @param entityEmbed
+   * @param relationEmbed
+   */
+  def bfgs(cacheF: CacheFilter, tripleSize: Int, entityEmbed: Map[Int, DenseMatrix[Double]], relationEmbed: Map[Int,
+    DenseMatrix[Double]]) {
+
+    val ignite = Ignition.ignite()
+    val clusterSize = ignite.cluster().nodes().size()
     var batchesPerNode = 0
-    if (clusterSize < 10)
+    if (clusterSize < 10) {
       batchesPerNode = Math.ceil(10 / clusterSize).toInt
-    else batchesPerNode = 1
+    } else {
+      batchesPerNode = 1
+    }
     //println("cluster size is : " + clusterSize)
-    var batchsize: Int = tripleSize / nbatches
+    val batchsize: Int = tripleSize / nbatches
     var variables = Map[String, String]()
     variables += ("batchsize" -> batchsize.toString())
     variables += ("dim_num" -> n.toString())
@@ -316,9 +342,10 @@ object MDE extends App {
     variables += ("beta1" -> beta1.toString())
     variables += ("beta2" -> beta2.toString())
 
+
     var res: Double = 0
-    var resPos: Double = 0
-    var resNeg: Double = 0
+    //var resPos: Double = 0
+    //var resNeg: Double = 0
     var tmpLoss: Double = MaxValue
 
     val bw = new BufferedWriter(new FileWriter("trainingResults.txt"))
@@ -329,6 +356,8 @@ object MDE extends App {
     bw.write("~~~~~~~~~~~~~~~~~~~~~~~~ Training results ~~~~~~~~~~~~~~~~~~~~~~~~" + "\n")
     bw.write("Starting training at  " + java.time.LocalDateTime.now())
     for (epoch <- 0 until nepoch) {
+      variables += ("iteration" -> String.valueOf(epoch))
+
       //if (epoch == 5)
       //  lr_rate =lr_rate / 10
 
@@ -343,12 +372,13 @@ object MDE extends App {
       var resPos: Double = 0
       var resNeg: Double = 0
       for (batch <- 0 until 10) {
-        var calls: Collection[IgniteCallable[Tuple5[Double, Map[Int, DenseMatrix[Double]], Map[Int, DenseMatrix[Double]],Double,Double]]] = new ArrayList
+        var calls: Collection[IgniteCallable[Tuple5[Double, Map[Int, DenseMatrix[Double]], Map[Int,
+          DenseMatrix[Double]], Double, Double]]] = new ArrayList
         for (i <- 0 until clusterSize) {
           calls.add(() => {
-            val nodeid = ignite$.cluster().localNode.id
-            var inNode = new ComputeInsideNode(entityEmbed, relationEmbed, variables)
-            var singlebatchRes = inNode.computeInsideNode()
+            //val nodeid = ignite$.cluster().localNode.id
+            val inNode = new ComputeInsideNode(entityEmbed, relationEmbed, variables)
+            val singlebatchRes = inNode.computeInsideNode()
             singlebatchRes
           })
         }
@@ -357,7 +387,7 @@ object MDE extends App {
         for (batchLoss <- batchCompute.asScala) {
           res += batchLoss._1
           updateEmbeddingsMap(entityEmbed, batchLoss._2) //entity gradients
-          updateEmbeddingsMap(relationEmbed, batchLoss._3)//relation gradients
+          updateEmbeddingsMap(relationEmbed, batchLoss._3) //relation gradients
           resPos += batchLoss._4
           resNeg += batchLoss._5
         }
@@ -369,7 +399,7 @@ object MDE extends App {
       if (update_gamma) {
         update_limits(loss_p_per_triple, loss_n_per_triple)
       }
-      bw.write("epoch " + epoch + " loss: " + res + "\n")
+      bw.write("epoch " + epoch + " loss: " + loss_per_triple + "\n")
       println("epoch " + epoch + " loss: " + res)
       println("epoch " + epoch + " loss_per_triple: " + loss_per_triple)
       println("epoch " + epoch + " loss_positive_per_triple: " + loss_p_per_triple)
@@ -402,75 +432,80 @@ object MDE extends App {
         newEmbed(k, ::) := renorm_l2(temp).t //(temp).t//renorm_l2(temp).t // norm(temp).t //(temp).t
       }
 
-      embeddingsMap += (e._1 -> newEmbed)// (e._1 -> e._2)
+      embeddingsMap += (e._1 -> newEmbed) // (e._1 -> e._2)
     })
   }
 
-//  def computeTest(entityCache: Map[Int, DenseMatrix[Double]], relationCache: Map[Int, DenseMatrix[Double]], testT: TriplesCache, filterC: CacheFilter) {
-//    var sumRank4head = 0
-//    var sumRank4headFiltered = 0
-//    var sumRank4tail = 0
-//    var sumRank4tailFiltered = 0
-//    var countHits4head = 0
-//    var countHits4tail = 0
-//    var countHits4headFiltered = 0
-//    var countHits4tailFiltered = 0
-//    var variables = Map[String, String]()
-//    variables += ("dim_num" -> n.toString())
-//    variables += ("hit" -> hitAt.toString())
-//    var start = java.time.LocalDateTime.now()
-//    var testcalls: Collection[IgniteCallable[Map[String, Int]]] = new ArrayList
-//    var testChunks = (0 until testTriples).toList.grouped(1000)
-//    testChunks.foreach(chunk => {
-//      testcalls.add(() => {
-//        val nodeid = ignite$.cluster().localNode.id
-//        // println("computing triples at node: " + nodeid)
-//        var inNode = new Test(entityCache, relationCache, variables)
-//        var singletestRes = inNode.testSingleTriple(chunk)
-//        singletestRes
-//      })
-//    })
-//    var testRes = Ignition.ignite().compute().call(testcalls)
-//    for (testresult <- testRes.asScala) {
-//      countHits4head += testresult("countHits4head")
-//      countHits4headFiltered += testresult("countHits4headFiltered")
-//      sumRank4head += testresult("sumRank4head")
-//      sumRank4headFiltered += testresult("sumRank4headFiltered")
-//      countHits4tail += testresult("countHits4tail")
-//      countHits4tailFiltered += testresult("countHits4tailFiltered")
-//      sumRank4tail += testresult("sumRank4tail")
-//      sumRank4tailFiltered += testresult("sumRank4tailFiltered")
-//    }
-//    var finish = java.time.LocalDateTime.now()
-//    println("start: " + start + " end:" + finish)
-//    val bw = new BufferedWriter(new FileWriter("testResults.txt"))
-//    bw.write("dim " + n + ", lr_rate " + lr_rate + ", margin " + margin)
-//    bw.write("Hit@" + hitAt + " raw for head is: " + countHits4head * 100 / testTriples + "% \n")
-//    bw.write("Hit@" + hitAt + " raw for tail is: " + countHits4tail * 100 / testTriples + "% \n")
-//    bw.write("Hit@" + hitAt + " filtered for head is: " + countHits4headFiltered * 100 / testTriples + "% \n")
-//    bw.write("Hit@" + hitAt + " filtered for tail is: " + countHits4tailFiltered * 100 / testTriples + "% \n")
-//    bw.write("*************************************************************************")
-//    bw.write(" MR for head: " + sumRank4head / testTriples + " \n")
-//    bw.write(" MR for tail: " + sumRank4tail / testTriples + " \n")
-//    bw.write(" MR for head filtered: " + sumRank4headFiltered / testTriples + " \n")
-//    bw.write(" MR for tail filtered: " + sumRank4tailFiltered / testTriples + " \n")
-//    bw.write("*************************************************************************")
-//    bw.close()
-//
-//    println("dim " + n + ", lr_rate " + lr_rate + ", margin " + margin)
-//    println("Hit@" + hitAt + " raw for head is: " + Math.round(countHits4head * 100 / testTriples) + "% ")
-//    println("Hit@" + hitAt + " raw for tail is: " + Math.round(countHits4tail * 100 / testTriples) + "% ")
-//    println("Hit@" + hitAt + " filtered for head is: " + Math.round(countHits4headFiltered * 100 / testTriples) + "% ")
-//    println("Hit@" + hitAt + " filtered for tail is: " + Math.round(countHits4tailFiltered * 100 / testTriples) + "% ")
-//    println("*************************************************************************")
-//    println(" MR for head: " + Math.round(sumRank4head / testTriples))
-//    println(" MR for tail: " + Math.round(sumRank4tail / testTriples))
-//    println(" MR for head filtered: " + Math.round(sumRank4headFiltered / testTriples))
-//    println(" MR for tail filtered: " + Math.round(sumRank4tailFiltered / testTriples))
-//    println("*************************************************************************")
-//  }
+  //  def computeTest(entityCache: Map[Int, DenseMatrix[Double]], relationCache: Map[Int, DenseMatrix[Double]],
+  //  testT: TriplesCache, filterC: CacheFilter) {
+  //    var sumRank4head = 0
+  //    var sumRank4headFiltered = 0
+  //    var sumRank4tail = 0
+  //    var sumRank4tailFiltered = 0
+  //    var countHits4head = 0
+  //    var countHits4tail = 0
+  //    var countHits4headFiltered = 0
+  //    var countHits4tailFiltered = 0
+  //    var variables = Map[String, String]()
+  //    variables += ("dim_num" -> n.toString())
+  //    variables += ("hit" -> hitAt.toString())
+  //    var start = java.time.LocalDateTime.now()
+  //    var testcalls: Collection[IgniteCallable[Map[String, Int]]] = new ArrayList
+  //    var testChunks = (0 until testTriples).toList.grouped(1000)
+  //    testChunks.foreach(chunk => {
+  //      testcalls.add(() => {
+  //        val nodeid = ignite$.cluster().localNode.id
+  //        // println("computing triples at node: " + nodeid)
+  //        var inNode = new Test(entityCache, relationCache, variables)
+  //        var singletestRes = inNode.testSingleTriple(chunk)
+  //        singletestRes
+  //      })
+  //    })
+  //    var testRes = Ignition.ignite().compute().call(testcalls)
+  //    for (testresult <- testRes.asScala) {
+  //      countHits4head += testresult("countHits4head")
+  //      countHits4headFiltered += testresult("countHits4headFiltered")
+  //      sumRank4head += testresult("sumRank4head")
+  //      sumRank4headFiltered += testresult("sumRank4headFiltered")
+  //      countHits4tail += testresult("countHits4tail")
+  //      countHits4tailFiltered += testresult("countHits4tailFiltered")
+  //      sumRank4tail += testresult("sumRank4tail")
+  //      sumRank4tailFiltered += testresult("sumRank4tailFiltered")
+  //    }
+  //    var finish = java.time.LocalDateTime.now()
+  //    println("start: " + start + " end:" + finish)
+  //    val bw = new BufferedWriter(new FileWriter("testResults.txt"))
+  //    bw.write("dim " + n + ", lr_rate " + lr_rate + ", margin " + margin)
+  //    bw.write("Hit@" + hitAt + " raw for head is: " + countHits4head * 100 / testTriples + "% \n")
+  //    bw.write("Hit@" + hitAt + " raw for tail is: " + countHits4tail * 100 / testTriples + "% \n")
+  //    bw.write("Hit@" + hitAt + " filtered for head is: " + countHits4headFiltered * 100 / testTriples + "% \n")
+  //    bw.write("Hit@" + hitAt + " filtered for tail is: " + countHits4tailFiltered * 100 / testTriples + "% \n")
+  //    bw.write("*************************************************************************")
+  //    bw.write(" MR for head: " + sumRank4head / testTriples + " \n")
+  //    bw.write(" MR for tail: " + sumRank4tail / testTriples + " \n")
+  //    bw.write(" MR for head filtered: " + sumRank4headFiltered / testTriples + " \n")
+  //    bw.write(" MR for tail filtered: " + sumRank4tailFiltered / testTriples + " \n")
+  //    bw.write("*************************************************************************")
+  //    bw.close()
+  //
+  //    println("dim " + n + ", lr_rate " + lr_rate + ", margin " + margin)
+  //    println("Hit@" + hitAt + " raw for head is: " + Math.round(countHits4head * 100 / testTriples) + "% ")
+  //    println("Hit@" + hitAt + " raw for tail is: " + Math.round(countHits4tail * 100 / testTriples) + "% ")
+  //    println("Hit@" + hitAt + " filtered for head is: " + Math.round(countHits4headFiltered * 100 / testTriples) +
+  //    "% ")
+  //    println("Hit@" + hitAt + " filtered for tail is: " + Math.round(countHits4tailFiltered * 100 / testTriples) +
+  //    "% ")
+  //    println("*************************************************************************")
+  //    println(" MR for head: " + Math.round(sumRank4head / testTriples))
+  //    println(" MR for tail: " + Math.round(sumRank4tail / testTriples))
+  //    println(" MR for head filtered: " + Math.round(sumRank4headFiltered / testTriples))
+  //    println(" MR for tail filtered: " + Math.round(sumRank4tailFiltered / testTriples))
+  //    println("*************************************************************************")
+  //  }
 }
+
 class TripleID(var head: Int, var tail: Int, var rel: Int)
+
 class readDataset() {
 
 }

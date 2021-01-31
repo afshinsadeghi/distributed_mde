@@ -48,9 +48,11 @@ class ComputeInsideNode(entityCache: Map[Int, DenseMatrix[Double]], relationCach
   var beta2: Double = variables("beta2").toDouble
 
   var iteration =  Integer.parseInt(variables("iteration"))
+
   // Initialize optimizer
   val numerical_stability = .00000001
-  val optimizer_name = "sgd" // "adam"
+  //val optimizer_name = "sgd" // "adam"
+  val optimizer_name = "adam" // "adam"
   /**
     * Initialize momentum term, exponential weight for moving average of the gradient
     */
@@ -61,19 +63,19 @@ class ComputeInsideNode(entityCache: Map[Int, DenseMatrix[Double]], relationCach
     */
   var optimizer_r: Double = .999
 
-  //var h_moment1:DenseMatrix[Double] = DenseMatrix.zeros(8,dimNum)
-  var h_moment1: DenseMatrix[Double] = null
+  var h_moment1:DenseMatrix[Double] = DenseMatrix.zeros(8,dimNum)
+  //var h_moment1: DenseMatrix[Double] = null
   /**
     * The second moment captures a moving average of the squared gradient, or the magnitude of the
     * gradient. It is applied with the Adam optimizer.
     */
-  var h_moment2:DenseMatrix[Double] = null
-  //var h_moment2: DenseMatrix[Double] = null
+  var h_moment2:DenseMatrix[Double] = DenseMatrix.zeros(8,dimNum)
+  //var h_moment2:DenseMatrix[Double] = null
 
-  var r_moment1:DenseMatrix[Double] = null
-  var r_moment2:DenseMatrix[Double] = null
-  var t_moment1:DenseMatrix[Double] = null
-  var t_moment2:DenseMatrix[Double] = null
+  var r_moment1:DenseMatrix[Double] = DenseMatrix.zeros(8,dimNum)
+  var r_moment2:DenseMatrix[Double] = DenseMatrix.zeros(8,dimNum)
+  var t_moment1:DenseMatrix[Double] = DenseMatrix.zeros(8,dimNum)
+  var t_moment2:DenseMatrix[Double] = DenseMatrix.zeros(8,dimNum)
 
   /** Type alias. */
   type Cache = IgniteCache[JavaString, JavaInt]
@@ -128,29 +130,29 @@ class ComputeInsideNode(entityCache: Map[Int, DenseMatrix[Double]], relationCach
   }
 
   def gradA(h: DenseVector[Double], t: DenseVector[Double], r: DenseVector[Double]): DenseVector[Double] = {
-    var grad: DenseVector[Double] = ((h + r - t ) / norm_l2(h + r - t )) * 1.5 / 9.0
+    val grad: DenseVector[Double] = ((h + r - t ) / norm_l2(h + r - t )) * 1.5 / 9.0
     grad
 
   }
 
   def gradB(h: DenseVector[Double], t: DenseVector[Double], r: DenseVector[Double]): DenseVector[Double] = {
-    var grad: DenseVector[Double] = ((h + t - r ) / norm_l2(h + t - r )) * 3.0 / 9.0
+    val grad: DenseVector[Double] = ((h + t - r ) / norm_l2(h + t - r )) * 3.0 / 9.0
     grad
 
   }
 
   def gradC(h: DenseVector[Double], t: DenseVector[Double], r: DenseVector[Double]): DenseVector[Double] = {
 
-    var grad: DenseVector[Double] = ((t + r - h ) / norm_l2(t + r - h )) * 1.5 / 9.0
+    val grad: DenseVector[Double] = ((t + r - h ) / norm_l2(t + r - h )) * 1.5 / 9.0
     grad
 
   }
 
   def gradD(h: DenseVector[Double], t: DenseVector[Double], r: DenseVector[Double]): Tuple3[DenseVector[Double], DenseVector[Double], DenseVector[Double]] = {
 
-    var gradH: DenseVector[Double] = ((h - r * t) /norm_l2(h - r * t ))  * 3.0 / 9.0
-    var gradR: DenseVector[Double] = ((h - r * t) /norm_l2(h - r * t )) * (t) * 3.0 / 9.0
-    var gradT: DenseVector[Double] = ((h - r * t) /norm_l2(h - r * t )) * (-r) * 3.0 / 9.0
+    val gradH: DenseVector[Double] = ((h - r * t) /norm_l2(h - r * t ))  * 3.0 / 9.0
+    val gradR: DenseVector[Double] = ((h - r * t) /norm_l2(h - r * t )) * (t) * 3.0 / 9.0
+    val gradT: DenseVector[Double] = ((h - r * t) /norm_l2(h - r * t )) * (-r) * 3.0 / 9.0
     (gradH, gradR, gradT)
 
   }
@@ -211,6 +213,7 @@ class ComputeInsideNode(entityCache: Map[Int, DenseMatrix[Double]], relationCach
     if (!relation_tmp.contains(triple.rel))
       relation_tmp.put(triple.rel, DenseMatrix.zeros[Double](8, dimNum)) //relation_tmp.put(triple.rel, rel)
 
+    //Check this
     if (!trueTriple) lr_rate = lr_rate * -1.0
     //    println("lr_rate" + lr_rate)
     //println("gradients ga0 for head:" + gradHead(0, ::))
@@ -230,7 +233,7 @@ class ComputeInsideNode(entityCache: Map[Int, DenseMatrix[Double]], relationCach
 
     //println("h  head:" + h(0, ::))
     if (optimizer_name == "sgd") { //layer.weights -= lr * gradient
-      var hNew = h - gradHead * lr_rate   //not sure if sign of lr is right, test it later
+      var hNew = h + gradHead * lr_rate   //not sure if sign of lr is right, test it later
       //println("h new  head:" + hNew)
       entity_tmp.put(triple.head, hNew)
 
@@ -239,28 +242,29 @@ class ComputeInsideNode(entityCache: Map[Int, DenseMatrix[Double]], relationCach
       entity_tmp.put(triple.tail, tNew)
 
 
-      var rNew = r - gradRel * lr_rate
+      var rNew = r + gradRel * lr_rate
       relation_tmp.put(triple.rel, rNew)
     }
-    else if (optimizer_name == "adam") { // from https://github.com/JeremyNixon/sparkdl/blob/master/src/main/scala/org/apache/spark/ml/sparkdl/dl.scala
+    else if (optimizer_name == "adam") { // from https//github.com/JeremyNixon/sparkdl/blob/master/src/main/scala/org/apache/spark/ml/sparkdl/dl.scala
+
       h_moment1 = optimizer_s * h_moment1 + (1- optimizer_s) * gradHead
-      h_moment2 = optimizer_r * h_moment2 + (1- optimizer_r) * (gradHead :* gradHead)
-      val m1_unbiased = h_moment1 :/ (1 - (math.pow(optimizer_s, iteration + 1)))
-      val m2_unbiased = h_moment2 :/ (1- (math.pow(optimizer_r, iteration + 1)))
-      var hNew  = h - ( lr_rate * m1_unbiased :/ (sqrt(m2_unbiased) + numerical_stability) )
+      h_moment2 = optimizer_r * h_moment2 + (1- optimizer_r) * (gradHead *:* gradHead)
+      var m1_unbiased = h_moment1 /:/ (1 - (math.pow(optimizer_s, iteration + 1)))
+      var m2_unbiased = h_moment2 /:/ (1- (math.pow(optimizer_r, iteration + 1)))
+      val hNew  = h - ( lr_rate * m1_unbiased /:/ (sqrt(m2_unbiased) + numerical_stability) )
 
 
       r_moment1 = optimizer_s * r_moment1 + (1- optimizer_s) * gradHead
-      r_moment2 = optimizer_r * r_moment2 + (1- optimizer_r) * (gradHead :* gradHead)
-      m1_unbiased = r_moment1 :/ (1 - (math.pow(optimizer_s, iteration + 1)))
-      m2_unbiased = r_moment2 :/ (1- (math.pow(optimizer_r, iteration + 1)))
-      var rNew  = r - ( lr_rate * m1_unbiased :/ (sqrt(m2_unbiased) + numerical_stability) )
+      r_moment2 = optimizer_r * r_moment2 + (1- optimizer_r) * (gradHead *:* gradHead)
+      m1_unbiased = r_moment1 /:/ (1 - (math.pow(optimizer_s, iteration + 1)))
+      m2_unbiased = r_moment2 /:/ (1- (math.pow(optimizer_r, iteration + 1)))
+      val rNew  = r - ( lr_rate * m1_unbiased /:/ (sqrt(m2_unbiased) + numerical_stability) )
 
       t_moment1 = optimizer_s * t_moment1 + (1- optimizer_s) * gradHead
-      t_moment2 = optimizer_r * t_moment2 + (1- optimizer_r) * (gradHead :* gradHead)
-      m1_unbiased = h_moment1 :/ (1 - (math.pow(optimizer_s, iteration + 1)))
-      m2_unbiased = h_moment2 :/ (1- (math.pow(optimizer_r, iteration + 1)))
-      var tNew  = t - ( lr_rate * m1_unbiased :/ (sqrt(m2_unbiased) + numerical_stability) )
+      t_moment2 = optimizer_r * t_moment2 + (1- optimizer_r) * (gradHead *:* gradHead)
+      m1_unbiased = h_moment1 /:/ (1 - (math.pow(optimizer_s, iteration + 1)))
+      m2_unbiased = h_moment2 /:/ (1- (math.pow(optimizer_r, iteration + 1)))
+      val tNew  = t - ( lr_rate * m1_unbiased /:/ (sqrt(m2_unbiased) + numerical_stability) )
 
 
       entity_tmp.put(triple.head, hNew)
@@ -286,9 +290,13 @@ class ComputeInsideNode(entityCache: Map[Int, DenseMatrix[Double]], relationCach
   }
 
 
+  /**
+   * Not in Use
+   * @param posScore
+   * @param negScore
+   * @return
+   */
   def loss_old(posScore: Double, negScore: Double): Tuple3[Double, Double, Double] = {
-
-
     var loss: Double = max(0.0, ((posScore - negScore + margin) * (-1.0)))
     var neg_loss: Double = 0.0
     (loss, loss, neg_loss)
@@ -318,6 +326,7 @@ class ComputeInsideNode(entityCache: Map[Int, DenseMatrix[Double]], relationCach
   }
 
   def computeInsideNode(): Tuple5[Double, Map[Int, DenseMatrix[Double]], Map[Int, DenseMatrix[Double]], Double, Double] = {
+    println("iteration: "+iteration)
     val remoteIgnite = Ignition.localIgnite()
     var trainingTriplesCache: IgniteCache[JavaInt, TripleID] = remoteIgnite.cache("tripleIde");
     var existingTriplesCache: IgniteCache[TripleID, JavaInt] = remoteIgnite.cache("allTriplesCache");
@@ -341,7 +350,7 @@ class ComputeInsideNode(entityCache: Map[Int, DenseMatrix[Double]], relationCach
             randomEntity = rand_max(entity_num)
           }
           if (!entity_tmp.contains(randomEntity)) {
-            var temp = train(triple, new TripleID(triple.head, randomEntity, triple.rel), entity_tmp, relation_tmp)
+            val temp = train(triple, new TripleID(triple.head, randomEntity, triple.rel), entity_tmp, relation_tmp)
             totRes += temp._1
             totResPos += temp._2
             totResNeg += temp._3
@@ -351,7 +360,7 @@ class ComputeInsideNode(entityCache: Map[Int, DenseMatrix[Double]], relationCach
             randomEntity = rand_max(entity_num)
           }
           if (!entity_tmp.contains(randomEntity)) {
-            var temp = train(triple, new TripleID(randomEntity, triple.tail, triple.rel), entity_tmp, relation_tmp)
+            val temp = train(triple, new TripleID(randomEntity, triple.tail, triple.rel), entity_tmp, relation_tmp)
             totRes += temp._1
             totResPos += temp._2
             totResNeg += temp._3
