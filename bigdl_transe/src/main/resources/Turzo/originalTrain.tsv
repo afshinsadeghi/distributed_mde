@@ -1,0 +1,12 @@
+Mary	StudyIn	UniBonn
+UniBonn	IsLocatedIn	Germany
+Mary	LiveIn	Germany
+John	StudyIn	UniBonn
+John	LiveIn	Germany
+Mike	LiveIn	UK
+Mike	StudyIn	UniOx
+UniOx	IsLocatedIn	UK
+Bob	LiveIn	UK
+Bob	StudyIn	UniOx
+Alice	Fof	Jack
+Amy	Fof	Fred

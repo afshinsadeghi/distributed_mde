@@ -1,8 +1,7 @@
-<project xmlns="https://maven.apache.org/POM/4.0.0" xmlns:xsi="https://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="https://maven.apache.org/POM/4.0.0 https://maven.apache.org/maven-v4_0_0.xsd">
-    <modelVersion>4.0.0</modelVersion>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<modelVersion>4.0.0</modelVersion>
 	<artifactId>MDE</artifactId>
-	<groupId>org.xhulja</groupId>
+	<groupId>org.SDA</groupId>
 	<version>0.0.1</version>
 	<name>MDE</name>
 	<description>Scala implementation of MDE</description>
@@ -45,7 +44,6 @@
 	    <artifactId>ignite-core</artifactId>
 	    <version>2.8.0</version>
 	</dependency>
-
 
         <dependency>
             <groupId>com.github.wookietreiber</groupId>
@@ -90,35 +88,66 @@
 	    <artifactId>ignite-kubernetes</artifactId>
 	    <version>2.8.0</version>
 	</dependency>
+    <dependency>
+        <groupId>org.apache.spark</groupId>
+        <artifactId>spark-core_2.11</artifactId>
+        <version>2.4.4</version>
+    </dependency>
 
+    <!-- https://mvnrepository.com/artifact/org.apache.spark/spark-sql -->
+    <dependency>
+        <groupId>org.apache.spark</groupId>
+        <artifactId>spark-sql_2.11</artifactId>
+        <version>2.4.4</version>
+    </dependency>
+    <!-- https://mvnrepository.com/artifact/com.intel.analytics.bigdl/bigdl-SPARK -->
+    <dependency>
+        <groupId>com.intel.analytics.bigdl</groupId>
+        <artifactId>bigdl-SPARK_2.4</artifactId>
+        <version>0.10.0</version>
+    </dependency>
+        <!-- https://mvnrepository.com/artifact/org.apache.spark/spark-mllib -->
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-mllib_2.11</artifactId>
+            <version>2.3.2</version>
+            <scope>provided</scope>
+        </dependency>
+
+    <!-- https://mvnrepository.com/artifact/org.apache.spark/spark-hivecontext-compatibility -->
+    <dependency>
+        <groupId>org.apache.spark</groupId>
+        <artifactId>spark-hivecontext-compatibility_2.11</artifactId>
+        <version>2.0.0-preview</version>
+    </dependency>
 <!-- https://mvnrepository.com/artifact/com.google.cloud.tools/jib-maven-plugin -->
 
     </dependencies>
     <build>
         <sourceDirectory>src/main/scala</sourceDirectory>
-	<testSourceDirectory>src/test/scala</testSourceDirectory>
-        <plugins>
-	 <plugin>
-		<groupId>org.apache.maven.plugins</groupId>
-		<artifactId>maven-assembly-plugin</artifactId>
-		<version>3.2.0</version>
-		<configuration>
-		<descriptorRefs>
-		    <descriptorRef>jar-with-dependencies</descriptorRef>
-		</descriptorRefs>
-		</configuration>
-		<executions>
-		<execution>
-		    <id>assemble-all</id>
-		    <phase>package</phase>
-		    <goals>
-			<goal>single</goal>
-		    </goals>
-		</execution>
-		</executions>
-	</plugin>
-            <plugin>
-                <!-- see https://davidb.github.com/scala-maven-plugin -->
+        <!-- <testSourceDirectory>src/test/scala</testSourceDirectory> -->
+            <plugins>
+         <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-assembly-plugin</artifactId>
+            <version>3.2.0</version>
+            <configuration>
+            <descriptorRefs>
+                <descriptorRef>jar-with-dependencies</descriptorRef>
+            </descriptorRefs>
+            </configuration>
+            <executions>
+            <execution>
+                <id>assemble-all</id>
+                <phase>package</phase>
+                <goals>
+                <goal>single</goal>
+                </goals>
+            </execution>
+            </executions>
+        </plugin>
+                <plugin>
+                    <!-- see https://davidb.github.com/scala-maven-plugin -->
                 <groupId>net.alchim31.maven</groupId>
                 <artifactId>scala-maven-plugin</artifactId>
                 <version>3.3.1</version>

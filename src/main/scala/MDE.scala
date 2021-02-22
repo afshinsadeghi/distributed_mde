@@ -1,8 +1,10 @@
-import java.lang.{Integer => JavaInt, Long => JavaLong, String => JavaString, Double => JavaFloat}
+import java.lang.{Double => JavaFloat, Integer => JavaInt, Long => JavaLong, String => JavaString}
+
 import scala.io.Source
 import java.util
 import java.util.Map.Entry
 import java.util.Timer
+
 import javax.cache.processor.{EntryProcessor, MutableEntry}
 import org.apache.ignite.cache.query.SqlFieldsQuery
 import org.apache.ignite.internal.util.scala.impl
@@ -10,36 +12,55 @@ import org.apache.ignite.scalar.scalar
 import org.apache.ignite.scalar.scalar._
 import org.apache.ignite.stream.StreamReceiver
 import org.apache.ignite.{IgniteCache, IgniteException}
+
 import scala.util.Random
 import scala.io.Source._
 import scala.collection.JavaConverters._
 import breeze.linalg._
 import breeze.numerics._
 import breeze.stats.distributions._
-import java.util.Calendar;
+import java.util.Calendar
 import java.io.BufferedWriter
 import java.io._
+
 import scala.collection.mutable.ListBuffer
 import org.apache.commons.math3.analysis.function.Sqrt
+
 import scala.util.control.Breaks._
 import java.util.Collection
+
 import org.apache.ignite.lang.IgniteCallable
 import org.apache.ignite.lang.IgniteReducer
 import java.util.ArrayList
+
 import org.apache.ignite.Ignite
 import org.apache.ignite.Ignition
 import org.apache.ignite.compute.{ComputeJob, ComputeJobResult, ComputeTaskSplitAdapter}
+
 import scala.collection.mutable.ListBuffer
 import scala.collection.mutable.Map
 import java.nio.file.Paths
+
 import org.apache.ignite.IgniteSystemProperties
 import jdk.nashorn.internal.ir.ForNode
 import java.util.UUID
+import org.apache.spark.mllib.linalg.Matrix
+
+import com.intel.analytics.bigdl.tensor.Tensor
+
+import com.intel.analytics.bigdl.numeric.NumericFloat
+import com.intel.analytics.bigdl.utils.T
+
+import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric.NumericFloat
+
+
 import org.apache.ignite.messaging.MessagingListenActor
+
 import scala.collection.JavaConversions._
 import org.apache.ignite.configuration.CacheConfiguration
 import org.apache.ignite.cache.CacheMode
 import org.apache.ignite.configuration.IgniteConfiguration
+
 import scala.collection.mutable.Map
 
 object MDE extends App {
@@ -53,35 +74,36 @@ object MDE extends App {
   private final val tripleIDs = "tripleIde"
   private final val filterCache = "allTriplesCache"
   private final val testCache = "testTriplecachee"
-  final val MaxValue: Double = 1.7976931348623157E308
-
 
   /** Type alias. */
   type Cache = IgniteCache[JavaString, JavaInt]
   type CacheFilter = IgniteCache[TripleID, Int]
   type TriplesCache = IgniteCache[Int, TripleID]
 
-  val n = 50
-  val margin = 1.0
+  val dimension = 20
+  val margin = 1.0.toFloat
   val method = 0
   val nbatches = 50 //100
   val nepoch = 2000
   //var lr_rate = 0.0000001//0.00001//0.001//0.0001//0.1// 0.01 too big
-  var lr_rate = 0.01
+  //var lr_rate = 0.001//0.01 // for adam learning rate 0.001
+  var lr_rate =  0.01.toFloat //for sgd
   var entity_num = 0
   var relation_num = 0
   var testTriples = 0
 
-  var gamma_p: Double = 1.9
-  var gamma_n: Double = 1.9
-  var delta_p: Double = 0.0
-  var delta_n: Double = 0.0
-  //var beta1: Double = 1.0
-  var beta1: Double = 0.9
-  //var beta2: Double = 2.0
-  var beta2: Double = 0.999
-  val update_gamma = true
+  var gamma_p: Float = 1.9.toFloat//1.9   // wn18 50 1,9 1,9 2 1    fb15 200 10 13 1 1   wn18rr
+  var gamma_n: Float = 1.9.toFloat//1.9  //FB15k-237  100, 9, 9, 1   // WN18RR 50, 2, 2, 5 and 1
+  var delta_p: Float = 0.0.toFloat
+  var delta_n: Float = 0.0.toFloat
+  var beta1: Float = 1.0.toFloat
+  //var beta1: Float = 0.9
+  var beta2: Float = 1.0.toFloat
+  //var beta2: Float = 0.999
+  val update_gamma = false
   var hitAt = 10
+
+
 
   scalar(CONFIG) {
     //println(MaxValue)
@@ -107,33 +129,38 @@ object MDE extends App {
       classOf[JavaInt]))
 
     println(java.time.LocalDateTime.now())
+
+    //define call as an ignite variable that is callable
     var calls: Collection[IgniteCallable[Int]] = new ArrayList
+
     calls.add(() => {
       val smtr = dataStreamer$[JavaString, Int](entityCache, 2048)
-      var lineNr: Int = 0
+      var enity_num: Int = 0
       val stream: InputStream = getClass.getResourceAsStream("/data/WN18/entity2id.txt")
       for (line <- Source.fromInputStream(stream).getLines()) {
-        lineNr += 1
+        enity_num += 1
         val res = line.split("\t")
         smtr.addData(res(0), Integer.valueOf(res(1)))
       }
       smtr.close(false)
 
-      println("entity number is " + lineNr)
-      lineNr
+      println("entity number is " + enity_num)
+      enity_num
     })
+
+
     calls.add(() => {
       val smtr = dataStreamer$[JavaString, Int](relationCache, 2048)
-      var lineNr: Int = 0
+      var rel_number: Int = 0
       val stream: InputStream = getClass.getResourceAsStream("/data/WN18/relation2id.txt")
       for (line <- Source.fromInputStream(stream).getLines()) {
-        lineNr += 1
+        rel_number += 1
         val res = line.split("\t")
         smtr.addData(res(0), Integer.valueOf(res(1)))
       }
       smtr.close(false)
-      println("rel number is " + lineNr)
-      lineNr
+      println("rel number is " + rel_number)
+      rel_number
     })
     println("epochs number is " + nepoch)
     var compute1 = Ignition.ignite().compute().call(calls)
@@ -141,10 +168,19 @@ object MDE extends App {
     println(java.time.LocalDateTime.now())
     entity_num = entitycache.size()
     relation_num = relationcache.size()
-    var entityEmbed = scala.collection.mutable.Map[Int, DenseMatrix[Double]]()
-    var relationEmbed = scala.collection.mutable.Map[Int, DenseMatrix[Double]]()
-    createEmbedMatrixMap(entityEmbed, entity_num)
-    createEmbedMatrixMap(relationEmbed, relation_num)
+
+
+    //var entityEmbed = scala.collection.mutable.Map[Int, DenseMatrix[Double]]()
+    //var relationEmbed = scala.collection.mutable.Map[Int, DenseMatrix[Double]]()
+
+    val (entityEmbed, relationEmbed) = CreateEmbedding(entity_num, relation_num, dimension)
+
+    //createEmbedMatrixMap(entityEmbed, entity_num)
+    //createEmbedMatrixMap(relationEmbed, relation_num)
+
+
+
+
     println("embeddings initiated " + java.time.LocalDateTime.now())
     val tripleNr = populateTrainingTriplesCache("/data/WN18/train.txt", tripleIDs, filterCache, entitycache,
       relationcache)
@@ -157,15 +193,15 @@ object MDE extends App {
     println("Triple cache created: " + java.time.LocalDateTime.now())
     entitycache.destroy()
     relationcache.destroy()
-    println("rdim nur " + n)
+    println("rdim nur " + dimension)
     println("lr_rate is " + lr_rate)
     println("margin is " + margin)
 
     val startTime = java.time.LocalDateTime.now()
-    bfgs(filtercache, tripleIdCache.size(), entityEmbed, relationEmbed)
+    train(filtercache, tripleIdCache.size(), entityEmbed, relationEmbed)
     println("Training started at: " + startTime + " and ended at: " + java.time.LocalDateTime.now())
-    entityEmbed.clear()
-    relationEmbed.clear()
+    //entityEmbed.clear()
+    //relationEmbed.clear()
     val testStart = java.time.LocalDateTime.now()
 
     // computeTest(entityEmbed, relationEmbed, testTripleIDsCache, filtercache)
@@ -177,76 +213,66 @@ object MDE extends App {
 
   private def filteringCache[K, V]: IgniteCache[K, V] = cache$[K, V](filterCache).get
 
-  def writeFile(filename: String, embeddings: Map[Int, DenseVector[Double]], eSize: Int): Unit = {
+  def writeFile(filename: String, embeddings: Map[Int, DenseVector[Float]], eSize: Int): Unit = {
     val bw = new BufferedWriter(new FileWriter(new File(filename)))
     for (rowId <- 0 until eSize) {
       var current = embeddings(rowId)
-      for (i <- 0 until n)
+      for (i <- 0 until dimension)
         bw.write(current(i) + " ")
       bw.write("\n")
     }
     bw.close()
   }
 
-  def createEmbedMatrixMap(mapName: Map[Int, DenseMatrix[Double]], entriesNr: Int) {
-    for (i <- 0 until entriesNr) {
-      var embedd: DenseMatrix[Double] = breeze.linalg.DenseMatrix.zeros[Double](8, n)
-      for (k <- 0 until 8) {
-        var temp: DenseVector[Double] = breeze.linalg.DenseVector.zeros[Double](n)
-        val randGaussian = breeze.stats.distributions.Gaussian(0, 1)
-        temp = DenseVector.rand(n, randGaussian)
-        embedd(k, ::) := temp.t
-      }
-      mapName += (i -> embedd)
-    }
-  }
 
-  def rand(min: Double, max: Double): Double = {
+
+  def rand(min: Float, max: Float): Float = {
     val RAND_MAX = 0x7fffffff
     var r = min + (max - min) * scala.util.Random.nextInt() / (RAND_MAX + 1.0)
-    r
+    r.toFloat
   }
 
-  def normal(x: Double, miu: Double, sigma: Double): Double = {
-    return 1.0 / sqrt(2 * math.Pi) / sigma * exp(-1 * (x - miu) * (x - miu) / (2 * sigma * sigma))
+  def normal(x: Float, miu: Float, sigma: Float): Float = {
+    var r = 1.0 / sqrt(2 * math.Pi) / sigma * exp(-1 * (x - miu) * (x - miu) / (2 * sigma * sigma))
+    r.toFloat
   }
 
-  def randn(miu: Double, sigma: Double, min: Double, max: Double): Double = {
-    var x, y, dScope: Double = 0
+  def randn(miu: Float, sigma: Float, min: Float, max: Float): Float = {
+    var x, y, dScope: Float = 0.0.toFloat
     do {
       x = rand(min, max)
       y = normal(x, miu, sigma)
-      dScope = rand(0.0, normal(miu, miu, sigma))
+      dScope = rand(0.0.toFloat, normal(miu, miu, sigma))
     } while (dScope > y)
     return x
   }
 
-  def vec_len(a: DenseVector[Double]): Double = {
-    var res: Double = 0
+  def vec_len(a: DenseVector[Float]): Float = {
+    var res: Float = 0
     for (i <- 0 until a.size)
       res += a(i) * a(i)
     res = sqrt(res)
     return res;
   }
 
-  def norm(a: DenseVector[Double]): DenseVector[Double] = {
-    var x: Double = vec_len(a)
+  def norm(a: DenseVector[Float]): DenseVector[Float] = {
+    var x: Float = vec_len(a)
     if (x > 1)
       for (i <- 0 until a.size)
         a(i) /= x
     return a
   }
 
-  def norm_l2(a: DenseVector[Double]): Double = {
-    var sum: Double = 0.0
+  def norm_l2(a: DenseVector[Float]): Float = {
+    var sum: Float = 0.0.toFloat
     for (i <- 0 until a.size)
       sum = sum + (a(i) * a(i))
     sum = sqrt(sum)
     return sum
   }
 
-  def renorm_l2(a: DenseVector[Double]): DenseVector[Double] = {
-    var sum: Double = 0.0
+  def renorm_l2(a: DenseVector[Float]): DenseVector[Float] = {
+    var sum: Float = 0.0.toFloat
     for (i <- 0 until a.size)
       sum = sum + (a(i) * a(i))
     sum = sqrt(sum)
@@ -298,25 +324,24 @@ object MDE extends App {
     return lineNr
   }
 
-  def update_limits(loss_p_per_triple: Double, loss_n_per_triple: Double) {
+  def update_limits(loss_p_per_triple: Float, loss_n_per_triple: Float) {
     if (loss_p_per_triple * beta1 < 0.1 && delta_p < gamma_p)
-      delta_p += 0.1
+      delta_p += 0.1.toFloat
     if (loss_n_per_triple > 0.05 && delta_n < gamma_n - 0.1)
-      delta_n += 0.1
+      delta_n += 0.1.toFloat
     else if (loss_n_per_triple * beta2 < 0.1 && delta_n > 0.1 && delta_n <= delta_p - 0.1)
-      delta_n -= 0.1
+      delta_n -= 0.1.toFloat
   }
 
   /**
-   * Broyden–Fletcher–Goldfarb–Shanno algorithm
+   *
    *
    * @param cacheF seems not in use
    * @param tripleSize
    * @param entityEmbed
    * @param relationEmbed
    */
-  def bfgs(cacheF: CacheFilter, tripleSize: Int, entityEmbed: Map[Int, DenseMatrix[Double]], relationEmbed: Map[Int,
-    DenseMatrix[Double]]) {
+  def train(cacheF: CacheFilter, tripleSize: Int, entityEmbed: Tensor[Float], relationEmbed: Tensor[Float]) {
 
     import scalax.chart.api._
     val series = new XYSeries("Loss vs Epoch")
@@ -335,7 +360,7 @@ object MDE extends App {
     val batchsize: Int = tripleSize / nbatches
     var variables = Map[String, String]()
     variables += ("batchsize" -> batchsize.toString())
-    variables += ("dim_num" -> n.toString())
+    variables += ("dim_num" -> dimension.toString())
     variables += ("lr_rate" -> lr_rate.toString())
     variables += ("margin" -> margin.toString())
     variables += ("batchesPerNode" -> batchesPerNode.toString())
@@ -348,13 +373,13 @@ object MDE extends App {
     variables += ("beta2" -> beta2.toString())
 
 
-    var res: Double = 0
-    //var resPos: Double = 0
-    //var resNeg: Double = 0
-    var tmpLoss: Double = MaxValue
+    var res: Float = 0
+    //var resPos: Float = 0
+    //var resNeg: Float = 0
+    var tmpLoss: Float = 0
 
     val bw = new BufferedWriter(new FileWriter("trainingResults.txt"))
-    bw.write("dimSize = " + n + "\n")
+    bw.write("dimSize = " + dimension + "\n")
     bw.write("lr_rate = " + lr_rate + "\n")
     bw.write("marign = " + margin + "\n")
     bw.write("nBatches = " + nbatches + "\n")
@@ -374,11 +399,10 @@ object MDE extends App {
 
       bw.write("iteration = " + epoch + "\n")
       res = 0
-      var resPos: Double = 0
-      var resNeg: Double = 0
+      var resPos: Float = 0
+      var resNeg: Float = 0
       for (batch <- 0 until 10) {
-        var calls: Collection[IgniteCallable[Tuple5[Double, Map[Int, DenseMatrix[Double]], Map[Int,
-          DenseMatrix[Double]], Double, Double]]] = new ArrayList
+        var calls: Collection[IgniteCallable[Tuple5[Float, Tensor[Float], Tensor[Float], Float, Float]]] = new ArrayList
         for (i <- 0 until clusterSize) {
           calls.add(() => {
             //val nodeid = ignite$.cluster().localNode.id
@@ -391,11 +415,12 @@ object MDE extends App {
         calls.clear()
         for (batchLoss <- batchCompute.asScala) {
           res += batchLoss._1
-          updateEmbeddingsMap(entityEmbed, batchLoss._2) //entity gradients
-          updateEmbeddingsMap(relationEmbed, batchLoss._3) //relation gradients
+          var entityEmbed_ =  (batchLoss._2).clone() //entity gradients
+          var relationEmbed_ =  (batchLoss._3).clone() //relation gradients
           resPos += batchLoss._4
           resNeg += batchLoss._5
         }
+
       }
       var loss_per_triple = res / tripleSize
       var loss_p_per_triple = resPos / tripleSize
@@ -433,22 +458,18 @@ object MDE extends App {
 
   }
 
-  def updateEmbeddingsMap(embeddingsMap: Map[Int, DenseMatrix[Double]], tempMap: Map[Int, DenseMatrix[Double]]) {
-    tempMap.foreach(e => {
-      var old = embeddingsMap(e._1)
-      var newEmbed = DenseMatrix.zeros[Double](8, n)
-      for (k <- 0 until 8) {
-        var temp = DenseVector.zeros[Double](n)
-        for (i <- 0 until n)
-          temp(i) = old(k, i) + e._2(k, i)
-        newEmbed(k, ::) := renorm_l2(temp).t //(temp).t//renorm_l2(temp).t // norm(temp).t //(temp).t
-      }
 
-      embeddingsMap += (e._1 -> newEmbed) // (e._1 -> e._2)
-    })
+  def CreateEmbedding (entityListLength:Int, relationListLength:Int, dimension:Int) : (Tensor[Float], Tensor[Float]) = {
+
+    val entityEmbedding   = Tensor(entityListLength,8,dimension).rand(-6 / Math.sqrt(dimension), 6 / Math.sqrt(dimension))
+    //val entityEmbedding   = Tensor(entityListLength,8,dimension).rand(-6 / Math.sqrt(dimension), 6 / Math.sqrt(dimension))
+    val relationEmbedding = Tensor(relationListLength,8, dimension).rand(-6 / Math.sqrt(dimension), 6 / Math.sqrt(dimension))
+    (entityEmbedding, relationEmbedding)
   }
 
-  //  def computeTest(entityCache: Map[Int, DenseMatrix[Double]], relationCache: Map[Int, DenseMatrix[Double]],
+
+
+  //  def computeTest(entityCache: Map[Int, DenseMatrix[Float]], relationCache: Map[Int, DenseMatrix[Float]],
   //  testT: TriplesCache, filterC: CacheFilter) {
   //    var sumRank4head = 0
   //    var sumRank4headFiltered = 0
