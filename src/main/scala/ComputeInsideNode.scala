@@ -372,9 +372,49 @@ class ComputeInsideNode(entityCache: Tensor[Float], relationCache: Tensor[Float]
       scoresH.update(4, gradHeadNegative)
       scoresH.update(5, gradRelNegative)
       scoresH.update(6, gradTailNegative)
-      
+
+
+//      val scoresR: Tensor[Float] = Tensor(6, 8, dimNum)
+//
+//      val gradHeadPositive1 = ((h - r * t) / norm_l2(h - r * t)) * t * 3.0.toFloat / 9.0.toFloat
+//      val gradRelPositive1 = gradHeadPositive1
+//      val gradTailPositive1 = gradHeadPositive1 * -1.0.toFloat
+//
+//      val gradHeadNegative1 = gradHeadPositive1 * -1.0.toFloat
+//      val gradTailNegative1 = gradTailPositive1 * -1.0.toFloat
+//      val gradRelNegative1 = gradRelPositive1 * -1.0.toFloat
+//
+//      scoresR.update(1, gradHeadPositive1)
+//      scoresR.update(2, gradRelPositive1)
+//      scoresR.update(3, gradTailPositive1)
+//
+//      scoresR.update(4, gradHeadNegative1)
+//      scoresR.update(5, gradRelNegative1)
+//      scoresR.update(6, gradTailNegative1)
+//
+//
+//      val scoresT: Tensor[Float] = Tensor(6, 8, dimNum)
+//
+//      val gradHeadPositive2 = ((h - r * t) / norm_l2(h - r * t)) * (r * -1.0.toFloat) * 3.0.toFloat / 9.0.toFloat
+//      val gradRelPositive2 = gradHeadPositive2
+//      val gradTailPositive2 = gradHeadPositive2 * -1.0.toFloat
+//
+//      val gradHeadNegative2 = gradHeadPositive2 * -1.0.toFloat
+//      val gradTailNegative2 = gradTailPositive2 * -1.0.toFloat
+//      val gradRelNegative2 = gradRelPositive2 * -1.0.toFloat
+//
+//      scoresT.update(1, gradHeadPositive2)
+//      scoresT.update(2, gradRelPositive2)
+//      scoresT.update(3, gradTailPositive2)
+//
+//      scoresT.update(4, gradHeadNegative2)
+//      scoresT.update(5, gradRelNegative2)
+//      scoresT.update(6, gradTailNegative2)
+//
+//      (scoresH, scoresR, scoresT)
       scoresH
     }
+    
 
     val result = optim.optimize(Update, tensorTotal) //line 12  of the main algorithm
     val updateResult: Tensor[Float] = result._1
