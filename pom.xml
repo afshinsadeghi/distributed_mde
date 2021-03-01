@@ -111,7 +111,6 @@
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-mllib_2.11</artifactId>
             <version>2.3.2</version>
-            <scope>provided</scope>
         </dependency>
 
     <!-- https://mvnrepository.com/artifact/org.apache.spark/spark-hivecontext-compatibility -->
@@ -247,7 +246,7 @@
                             <exclude>javax.servlet:*</exclude>
                             <exclude>org.apache.hadoop:*</exclude>
                             <exclude>org.apache.maven.plugins:*</exclude>
-                            <exclude>org.apache.spark:*</exclude>
+<!--                            <exclude>org.apache.spark:*</exclude>-->
                             <exclude>org.apache.avro:*</exclude>
                             <exclude>org.apache.parquet:*</exclude>
                         </excludes>

@@ -1,67 +1,20 @@
-import java.lang.{Double => JavaFloat, Integer => JavaInt, Long => JavaLong, String => JavaString}
-
-import scala.io.Source
-import java.util
-import java.util.Map.Entry
-import java.util.Timer
-
-import javax.cache.processor.{EntryProcessor, MutableEntry}
-import org.apache.ignite.cache.query.SqlFieldsQuery
-import org.apache.ignite.internal.util.scala.impl
-import org.apache.ignite.scalar.scalar
-import org.apache.ignite.scalar.scalar._
-import org.apache.ignite.stream.StreamReceiver
-import org.apache.ignite.{IgniteCache, IgniteException}
-
-import scala.util.Random
-import scala.io.Source._
-import scala.collection.JavaConverters._
 import breeze.linalg._
 import breeze.numerics._
-import breeze.stats.distributions._
-import java.util.Calendar
-import java.io.BufferedWriter
-import java.io._
-
-import scala.collection.mutable.ListBuffer
-import org.apache.commons.math3.analysis.function.Sqrt
-
-import scala.util.control.Breaks._
-import java.util.Collection
-
-import org.apache.ignite.lang.IgniteCallable
-import org.apache.ignite.lang.IgniteReducer
-import java.util.ArrayList
-
-import org.apache.ignite.Ignite
-import org.apache.ignite.Ignition
-import org.apache.ignite.compute.{ComputeJob, ComputeJobResult, ComputeTaskSplitAdapter}
-
-import scala.collection.mutable.ListBuffer
-import scala.collection.mutable.Map
-import java.nio.file.Paths
-
-import org.apache.ignite.IgniteSystemProperties
-import jdk.nashorn.internal.ir.ForNode
-import java.util.UUID
-import org.apache.spark.mllib.linalg.Matrix
-
 import com.intel.analytics.bigdl.tensor.Tensor
-
-import com.intel.analytics.bigdl.numeric.NumericFloat
-import com.intel.analytics.bigdl.utils.T
-
 import com.intel.analytics.bigdl.tensor.TensorNumericMath.TensorNumeric.NumericFloat
-
-
-import org.apache.ignite.messaging.MessagingListenActor
-
-import scala.collection.JavaConversions._
-import org.apache.ignite.configuration.CacheConfiguration
+import org.apache.ignite.{IgniteCache, Ignition}
 import org.apache.ignite.cache.CacheMode
-import org.apache.ignite.configuration.IgniteConfiguration
+import org.apache.ignite.configuration.CacheConfiguration
+import org.apache.ignite.lang.IgniteCallable
+import org.apache.ignite.scalar.scalar
+import org.apache.ignite.scalar.scalar._
 
+import java.io.{BufferedWriter, _}
+import java.lang.{Integer => JavaInt, String => JavaString}
+import java.util.{ArrayList, Collection}
+import scala.collection.JavaConverters._
 import scala.collection.mutable.Map
+import scala.io.Source
 
 object MDE extends App {
   private val CONFIG = "src/main/scala/example-ignite.xml"
@@ -106,6 +59,10 @@ object MDE extends App {
 
 
   scalar(CONFIG) {
+
+    System.setProperty("bigdl.localMode", "true")
+
+
     //println(MaxValue)
     println("----------------------------------------------------")
     var cfgTriples = new CacheConfiguration[Int, TripleID]
@@ -357,7 +314,7 @@ object MDE extends App {
       batchesPerNode = 1
     }
     //println("cluster size is : " + clusterSize)
-    val batchsize: Int = tripleSize / nbatches
+    val batchsize: Int = 500
     var variables = Map[String, String]()
     variables += ("batchsize" -> batchsize.toString())
     variables += ("dim_num" -> dimension.toString())
@@ -436,6 +393,8 @@ object MDE extends App {
       println("epoch " + epoch + " loss_negative_per_triple: " + loss_n_per_triple)
       println("______________________________________________________")
 
+
+
       if (epoch > 950 && tmpLoss > res) {
         tmpLoss = res
         //        writeFile("finalEntEmbed.txt", entityEmbed, entity_num)
@@ -444,9 +403,9 @@ object MDE extends App {
 
 
 
-        swing.Swing onEDT {
-          series.add(epoch,loss_per_triple)
-        }
+      swing.Swing onEDT {
+        series.add(epoch,loss_per_triple)
+      }
 
 
     }
@@ -460,10 +419,8 @@ object MDE extends App {
 
 
   def CreateEmbedding (entityListLength:Int, relationListLength:Int, dimension:Int) : (Tensor[Float], Tensor[Float]) = {
-
-    val entityEmbedding   = Tensor(entityListLength,8,dimension).rand(-6 / Math.sqrt(dimension), 6 / Math.sqrt(dimension))
-    //val entityEmbedding   = Tensor(entityListLength,8,dimension).rand(-6 / Math.sqrt(dimension), 6 / Math.sqrt(dimension))
-    val relationEmbedding = Tensor(relationListLength,8, dimension).rand(-6 / Math.sqrt(dimension), 6 / Math.sqrt(dimension))
+    val entityEmbedding   = Tensor(entityListLength,8,dimension).rand(-1 / Math.sqrt(dimension), 1 / Math.sqrt(dimension))
+    val relationEmbedding = Tensor(relationListLength,8, dimension).rand(-1 / Math.sqrt(dimension), 1 / Math.sqrt(dimension))
     (entityEmbedding, relationEmbedding)
   }
 
